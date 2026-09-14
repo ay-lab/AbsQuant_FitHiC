@@ -313,13 +313,11 @@ Both are accepted, everywhere a matrix is read.
 
 A multi-resolution `.mcool` holds several matrices and is opened at
 `<file>::/resolutions/<resolution>`. A single-resolution `.cool` holds one and
-is opened directly. Each form fails on the other, so the file is inspected
-rather than guessed from its extension, and a full `::` URI you pass yourself is
-used untouched.
+is opened directly. 
 
 For a `.cool`, the file's own bin size must equal `--resolution`. A mismatch is
-a hard error rather than a silent substitution, since P(s) curves are indexed in
-units of bins and analysing at the wrong one would corrupt them quietly:
+a hard error, since P(s) curves are indexed in units of bins and analyzing at 
+the wrong one would corrupt them:
 
 ```
 ValueError: /path/S1.cool is a single-resolution cooler with binsize 5000,
@@ -327,8 +325,6 @@ but the requested resolution is 10000. Either pass --resolution 5000, or use
 an .mcool containing 10000.
 ```
 
-The generators look for `.mcool` first and fall back to `.cool`; set
-`COOL_EXTS="cool mcool"` to reverse that, or to a single extension to pin it.
 
 ## Running the scripts
 

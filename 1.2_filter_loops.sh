@@ -126,7 +126,7 @@ for subset in ${subsets[@]}; do
     done
     
     if [ -z "${combinedMcoolFile}" ]; then
-        echo "Warning: No combined .${coolExts[0]}/.${coolExts[1]} file for ${subset} under ${combinedReplicateDir}/${subset}/cool/"
+        echo "Warning: No combined cooler (${coolExts[*]}) for ${subset} under ${combinedReplicateDir}/${subset}/cool/"
         echo "  Skipping ${subset}..."
         continue
     fi

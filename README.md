@@ -49,7 +49,7 @@ This solves `absloopquantTB_env.yml`, then verifies that `numpy`, `pandas`,
 `scipy`, `cooler`, `cooltools`, `cv2`, `matplotlib` and `looptools` all import -
 a successful solve alone is not proof the environment works.
 
-Two pins in the spec are not cosmetic, and relaxing either one breaks the
+Two pins in the spec are crucial, and relaxing either one breaks the
 pipeline at import rather than at runtime:
 
 - **`numpy<2`** - `cooler`, `cooltools`, `py-opencv` and `numba` ship C

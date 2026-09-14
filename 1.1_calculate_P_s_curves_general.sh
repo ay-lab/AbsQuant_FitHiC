@@ -7,29 +7,65 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=150g
 
-# Script to generate SLURM scripts for calculating P(s) curves
-# Creates example scripts in qshs directory
+# Writes one SLURM job script per condition for the P(s) curve calculation.
+# This script generates jobs; it does not compute anything itself.
+#
+# ---------------------------------------------------------------------------
+# HOW TO RUN   (run it from inside the repo -- workingDir defaults to $PWD)
+#
+#   sbatch 1.1_calculate_P_s_curves_general.sh
+#   bash   1.1_calculate_P_s_curves_general.sh
+#
+# bash is fine for THIS script: it only writes job scripts and takes seconds.
+# It is NOT fine for the jobs it generates -- those run for hours per sample and
+# must be submitted with sbatch. Running them with bash puts the whole
+# calculation on a login node, where it will be throttled or killed.
+#
+# Override any INPUT VARIABLE below on the command line:
+#
+#   SUBSETS="condA condB" PER_REPLICATE_DIR=/path/to/matrix \
+#     bash 1.1_calculate_P_s_curves_general.sh
+#
+#   sbatch --export=ALL,SUBSETS="condA condB",PER_REPLICATE_DIR=/path/to/matrix \
+#     1.1_calculate_P_s_curves_general.sh
+# ---------------------------------------------------------------------------
 
 source ~/.bashrc
 
-# Parameters
-curr_date=$(date +"%y%m%d")
-subsets=("pTh17-1" "npTh17" "Treg" "Th1" "Th2" "Th0")
-resolution=10000
-nproc=30
+# ===========================================================================
+# INPUT VARIABLES
+# ===========================================================================
 
-# Directories
-# workingDir is this repo. Derived from the script's own location so a clone
-# works anywhere; override with WORKING_DIR= if you keep the code elsewhere.
-workingDir="${WORKING_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-# baseDir is the DATA project. It is site-specific -- override with BASE_DIR=
-# rather than editing this file.
-baseDir="${BASE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay}"
-perReplicateDir="${baseDir}/yard/251014_HiCPro/results/hicpro/hic_results/matrix"
-combinedReplicateDir="${baseDir}/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix"
+# Conditions to process; one job script is written per entry.
+read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
+
+# Per-replicate matrix directory. Expected layout:
+#   ${perReplicateDir}/<condition>-<rep>/cool/<condition>-<rep>.mcool
+perReplicateDir="${PER_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro/results/hicpro/hic_results/matrix}"
+
+# Combined-replicate matrix directory. Expected layout:
+#   ${combinedReplicateDir}/<condition>/cool/<condition>.mcool
+combinedReplicateDir="${COMBINED_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix}"
+
+# Output root, shared by steps 1.1 - 1.4. Set RESULTS_DIR once and the whole
+# chain stays in one place.
+resultsRoot="${RESULTS_DIR:-$(pwd)/results}"
+# Where the P(s) curves land. Step 1.2 reads this same default.
+pScurvesDir="${P_S_CURVES_DIR:-${resultsRoot}/P_s_curves}"
+
+# This repo, holding the .py files. Defaults to the directory you run from.
+workingDir="${WORKING_DIR:-$(pwd)}"
+
+resolution="${RESOLUTION:-10000}"
+nproc="${NPROC:-30}"
+
+# ===========================================================================
+# Derived - no need to edit below here
+# ===========================================================================
+curr_date=$(date +"%y%m%d")
 pythonFile="${workingDir}/1.1_calculate_P_s_curves_general.py"
 scriptsDir="${workingDir}/qshs/${curr_date}_calculate_P_s_curves"
-resultsDir="${workingDir}/results/P_s_curves"
+resultsDir="${pScurvesDir}"
 
 mkdir -p ${resultsDir}
 mkdir -p ${scriptsDir}

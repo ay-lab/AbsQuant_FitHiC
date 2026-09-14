@@ -211,9 +211,9 @@ scripts - it is a `cat`/`awk` pass over ~20 small files.
 | Output | `<results>/filtered_loops_<res>kb_fdr<fdr>/{condition}/{condition}.coords.fdr<fdr>.txt` |
 | Columns | `chr1  fragmentMid1  chr2  fragmentMid2  size` |
 
-The `chroms` array near the top lists mouse autosomes (`chr1`..`chr19`). Change
-it for other assemblies - human needs `chr1`..`chr22` - and it must match what
-step 2 was actually run on.
+`CHROMS` defaults to mouse autosomes (`chr1`..`chr19`). Change it for other
+assemblies - human needs `chr1`..`chr22` - and it must match what step 2 was
+actually run on.
 
 An existing output file is left alone; pass `FORCE=1` to rebuild it. A missing
 chromosome is reported and skipped rather than aborting the condition, so check
@@ -265,39 +265,46 @@ python3 1.4_intersect_replicates.py \
     --verbose
 ```
 
-## Configuring the job generators
+## Running the scripts
 
-`1.1_calculate_P_s_curves_general.sh` and `1.2_filter_loops.sh` resolve this
-repo from their own location, so a clone works from any path. The data project
-is site-specific and is set by environment variable rather than by editing the
-files:
+Run them **from inside the repo** - `workingDir` defaults to `$PWD`.
 
 ```bash
-BASE_DIR=/path/to/your/hic-project bash 1.2_filter_loops.sh
-WORKING_DIR=/path/to/AbsLoopQuant_TB bash 1.2_filter_loops.sh   # code elsewhere
+sbatch 1.2_filter_loops.sh     # recommended
+bash   1.2_filter_loops.sh     # runs here, on the login node
+```
+
+`bash` is fine for **1.1** and **1.2**: they only *write* job scripts, in
+seconds. The jobs they generate run for hours and must be submitted with
+`sbatch`. `bash` is **not** recommended for **1.3** and especially **1.4**,
+which do the work in-process - 1.4 loads a full fithic table per replicate and
+will be slow, or killed for memory, on a login node.
+
+Each script opens with an `INPUT VARIABLES` block. Override any of it without
+editing the file:
+
+```bash
+SUBSETS="condA condB" PER_REPLICATE_DIR=/path/to/matrix bash 1.2_filter_loops.sh
+
+sbatch --export=ALL,SUBSETS="condA condB",PER_REPLICATE_DIR=/path/to/matrix \
+  1.2_filter_loops.sh
 ```
 
 | Variable | Used by | Meaning |
 |---|---|---|
-| `WORKING_DIR` | all | This repo. Defaults to the script's own directory. |
-| `BASE_DIR` | all | The data project root. |
-| `RESULTS_DIR` | 1.3, 1.4 | Where step 2 wrote its output. Set it to keep steps 2-4 pointed at one place. |
+| `SUBSETS` | all | Conditions to process. |
+| `CHROMS` | 1.2, 1.3 | Chromosomes. Defaults to mouse autosomes `chr1`..`chr19`. |
+| `PER_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}-<rep>/cool/{condition}-<rep>.mcool` |
+| `COMBINED_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}/cool/{condition}.mcool`, and `.../fithic/<res>/...` |
+| `RESULTS_DIR` | all | Output root. Defaults to `$PWD/results`; set once to pin all four steps. |
+| `P_S_CURVES_DIR` | 1.1, 1.2 | P(s) curves. Same default on both, so they line up. |
 | `FITHIC_DIR` | 1.4 | Root of per-replicate fithic output, when deriving paths. |
-| `FITHIC_FILES` | 1.4 | Explicit space-separated list of fithic files. |
+| `FITHIC_FILES` | 1.4 | Explicit space-separated list of fithic files; wins over `FITHIC_DIR`. |
+| `FITHIC_TEMPLATE` | 1.2, 1.4 | Filename after the leading `<name>.`. |
+| `REPLICATE_NAMES` | 1.4 | Replicates to derive fithic paths for. |
+| `RESOLUTION` / `NPROC` / `FDR_THRESHOLD` | all | Defaults `10000` / `30` / `0.01`. |
 | `FORCE` | 1.3 | Overwrite an existing concatenated table. |
-
-`BASE_DIR` is expected to hold HiC-Pro-style output:
-
-```
-$BASE_DIR/<per-replicate matrix dir>/{condition}-<rep>/cool/{condition}-<rep>.mcool
-$BASE_DIR/<combined matrix dir>/{condition}/cool/{condition}.mcool
-$BASE_DIR/<combined matrix dir>/{condition}/fithic/<res>/{condition}.*.significances.txt.gz
-```
-
-The `subsets`, `resolution`, `nproc` and `fdrThreshold` values near the top of
-each generator, and the `perReplicateDir` / `combinedReplicateDir` layout, need
-editing to match your project. The generators require SLURM (`sbatch`); to run
-without a scheduler, call the two Python scripts directly as shown above.
+| `WORKING_DIR` | all | This repo. Only needed if you run from elsewhere. |
 
 ## Example Workflow
 

@@ -7,46 +7,65 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16g
 
-# Script to concatenate the per-chromosome output of 1.2 into one loop table
-# per subset. Unlike 1.1 and 1.2 this does the work directly rather than
-# generating SLURM scripts -- it is a cat/awk pass over ~20 small files.
+# Concatenates the per-chromosome output of 1.2 into one loop table per
+# condition, renaming the columns to fithic's so 1.4 can join on coordinates.
+# Unlike 1.1 and 1.2 this does the work itself rather than generating jobs.
 #
-# Input  (from 1.2): <resultsRoot>/filtered_loops_per_chr_fdr<fdr>/<subset>/
+# ---------------------------------------------------------------------------
+# HOW TO RUN   (run it from inside the repo -- workingDir defaults to $PWD)
+#
+#   sbatch 1.3_concat_loops.sh
+#   bash   1.3_concat_loops.sh
+#
+# Prefer sbatch. This step is usually quick, but it reads every per-chromosome
+# table for every condition, and on a large run that is minutes of I/O on a
+# shared login node. Use bash only for a small test.
+#
+# Override any INPUT VARIABLE below on the command line:
+#
+#   SUBSETS="condA condB" FORCE=1 bash 1.3_concat_loops.sh
+#
+#   sbatch --export=ALL,SUBSETS="condA condB",FORCE=1 1.3_concat_loops.sh
+# ---------------------------------------------------------------------------
+#
+# Input  (from 1.2): <resultsRoot>/filtered_loops_per_chr_fdr<fdr>/<condition>/
 #                        filtered_loops.fdr<fdr>.<chrom>.txt
 #                    columns: chr  left  right  size
 #
-# Output (for 1.4): <resultsRoot>/filtered_loops_<resKb>kb_fdr<fdr>/<subset>/
-#                        <subset>.coords.fdr<fdr>.txt
+# Output (for 1.4): <resultsRoot>/filtered_loops_<resKb>kb_fdr<fdr>/<condition>/
+#                        <condition>.coords.fdr<fdr>.txt
 #                    columns: chr1  fragmentMid1  chr2  fragmentMid2  size
-#
-# The output column names match fithic's, which is what lets 1.4 join the two
-# tables on coordinates.
-#
-# Set FORCE=1 to overwrite an existing output file instead of skipping it.
 
 source ~/.bashrc
 
-# Parameters
-curr_date=$(date +"%y%m%d")
-subsets=("pTh17-1" "npTh17" "Treg" "Th1" "Th2" "Th0")
-resolution=10000
-fdrThreshold=0.01
-resKb=$((resolution / 1000))
-# Chromosomes to concatenate, in output order. This is a mouse (mm10) autosome
-# set; for human use chr1..chr22, and add chrX / chrY if 1.2 was run on them.
-chroms=(chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \
-        chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19)
+# ===========================================================================
+# INPUT VARIABLES
+# ===========================================================================
 
-# Directories
-# workingDir is this repo. Derived from the script's own location so a clone
-# works anywhere; override with WORKING_DIR= if you keep the code elsewhere.
-workingDir="${WORKING_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-# baseDir is the DATA project. It is site-specific -- override with BASE_DIR=
-# rather than editing this file.
-baseDir="${BASE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay}"
-# resultsRoot is where 1.2 wrote its output. Override with RESULTS_DIR= to keep
-# steps 1.2-1.4 pointed at one place.
-resultsRoot="${RESULTS_DIR:-${baseDir}/yard/251027_absLoopQuant/results}"
+# Conditions to concatenate.
+read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
+
+# Chromosomes to concatenate, in output order. Mouse autosomes by default; use
+# chr1..chr22 for human. Must match what 1.2 was actually run on.
+read -r -a chroms <<< "${CHROMS:-chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19}"
+
+# Output root, shared by steps 1.1 - 1.4. Must match what 1.2 used.
+resultsRoot="${RESULTS_DIR:-$(pwd)/results}"
+
+# This repo. Defaults to the directory you run from.
+workingDir="${WORKING_DIR:-$(pwd)}"
+
+resolution="${RESOLUTION:-10000}"
+fdrThreshold="${FDR_THRESHOLD:-0.01}"
+
+# Set FORCE=1 to overwrite an existing output file instead of skipping it.
+FORCE="${FORCE:-0}"
+
+# ===========================================================================
+# Derived - no need to edit below here
+# ===========================================================================
+curr_date=$(date +"%y%m%d")
+resKb=$((resolution / 1000))
 inputDir="${resultsRoot}/filtered_loops_per_chr_fdr${fdrThreshold}"
 outputDir="${resultsRoot}/filtered_loops_${resKb}kb_fdr${fdrThreshold}"
 

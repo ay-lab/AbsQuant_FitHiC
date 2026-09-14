@@ -31,8 +31,10 @@ mamba env export -n ${envName} > ${outputYml}
 if [ $? -eq 0 ]; then
     echo "✓ Successfully exported environment to: ${outputYml}"
     echo ""
-    echo "To recreate this environment, run:"
-    echo "  bash ${scriptDir}/create_absloopquantTB_env.sh --lock"
+    echo "This is a build-pinned, platform-specific record of an already-built"
+    echo "environment. It is gitignored and is NOT how users install the toolkit;"
+    echo "they use absloopquantTB_env.yml. To rebuild from this lock file:"
+    echo "  mamba env create -n absloopquantTB -f ${outputYml}"
 else
     echo "✗ Error exporting environment"
     exit 1

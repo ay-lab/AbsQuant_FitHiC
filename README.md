@@ -16,31 +16,26 @@ The AbsLoopQuant workflow consists of two main steps:
 - **`1.2_filter_loops.py`** - Filter loops per chromosome using quantitative criteria
 - **`1.2_filter_loops.sh`** - Bash script to generate SLURM jobs for loop filtering
 - **`looptools.py`** - Helper module with loop analysis utilities
-- **`create_absloopquantTB_env.sh`** - Builds the `absloopquantTB` mamba environment and verifies its imports
-- **`absloopquantTB_env.yml`** - Portable environment spec (any platform)
-- **`absloopquantTB_env.lock.yml`** - Exact build-pinned export of the validated env (linux-64 only)
-- **`archive/export_absloopquantTB_env.sh`** - Regenerates the lock file from a built env
+- **`0.0_create_absloopquantTB_env.sh`** - Builds the `absloopquantTB` mamba environment and verifies its imports
+- **`absloopquantTB_env.yml`** - Conda/mamba environment spec
 
 ## Setup
+
+Requires `mamba` (or `conda`). Everything installs from `conda-forge` and
+`bioconda`.
 
 ### 1. Create the environment
 
 ```bash
-bash create_absloopquantTB_env.sh
+bash 0.0_create_absloopquantTB_env.sh
 ```
 
 This solves `absloopquantTB_env.yml`, then verifies that `numpy`, `pandas`,
 `scipy`, `cooler`, `cooltools`, `cv2`, `matplotlib` and `looptools` all import -
-a successful solve alone is not proof the env works.
+a successful solve alone is not proof the environment works.
 
-Two specs are provided:
-
-| File | Use it when |
-|---|---|
-| `absloopquantTB_env.yml` | **Default.** Portable; pins only what is load-bearing, solves on any platform. |
-| `absloopquantTB_env.lock.yml` | You need the exact env validated on the LJI cluster. 349 build-pinned packages, **linux-64 only**. `bash create_absloopquantTB_env.sh --lock` |
-
-Two pins in the portable spec are not cosmetic:
+Two pins in the spec are not cosmetic, and relaxing either one breaks the
+pipeline at import rather than at runtime:
 
 - **`numpy<2`** - `cooler`, `cooltools`, `py-opencv` and `numba` ship C
   extensions built against the numpy 1.x ABI, and numpy 2 breaks them at import.
@@ -52,11 +47,12 @@ Two pins in the portable spec are not cosmetic:
 Options:
 
 ```bash
-ENV_NAME=absloopquantTB2 bash create_absloopquantTB_env.sh      # side-by-side build
-ENV_PREFIX=/path/to/envs/absloopquantTB bash create_absloopquantTB_env.sh   # prefix env
+ENV_NAME=absloopquantTB2 bash 0.0_create_absloopquantTB_env.sh   # build side-by-side
+ENV_PREFIX=/path/to/envs/absloopquantTB bash 0.0_create_absloopquantTB_env.sh
 ```
 
-Prefer `ENV_PREFIX` when home is small, quota'd, or unreliable.
+`ENV_PREFIX` builds the environment at a path you choose instead of inside the
+conda root - useful when your home directory is small or quota'd.
 
 ### 2. Activate the Environment
 
@@ -199,40 +195,27 @@ is site-specific and is set by environment variable rather than by editing the
 files:
 
 ```bash
-BASE_DIR=/mnt/.../projects/<your-project> bash 1.2_filter_loops.sh
+BASE_DIR=/path/to/your/hic-project bash 1.2_filter_loops.sh
 WORKING_DIR=/path/to/AbsLoopQuant_TB bash 1.2_filter_loops.sh   # code elsewhere
 ```
 
-The `subsets`, `resolution`, `nproc` and `fdrThreshold` values near the top of
-each generator still need editing per project.
+`BASE_DIR` is expected to hold HiC-Pro-style output:
 
-## Known upstream bug, fixed here
-
-`1.2_filter_loops.py` carries a fix that is **not** in the original
-AbsLoopQuant code. `acceptable_size_and_location` correctly rejects a loop whose
-±`local_region_size` window runs past the end of a chromosome, but upstream
-only acts on that verdict *after* calling `no_NaNs_near_center`, which fetches
-the out-of-bounds region first:
-
-```python
-size_loc_pass = acceptable_size_and_location(...)      # correctly False
-nan_passes = [no_NaNs_near_center(...) for rep in ...] # runs anyway -> fetches -> raises
-if not (size_loc_pass and all(nan_passes)): return ... # checked too late
+```
+$BASE_DIR/<per-replicate matrix dir>/{condition}-<rep>/cool/{condition}-<rep>.mcool
+$BASE_DIR/<combined matrix dir>/{condition}/cool/{condition}.mcool
+$BASE_DIR/<combined matrix dir>/{condition}/fithic/<res>/{condition}.*.significances.txt.gz
 ```
 
-The fetch raises `ValueError: Genomic region out of bounds` inside a
-`multiprocessing.Pool` worker, which kills the entire chromosome. Observed on
-mm10 chr5 (151,834,684 bp) where a loop caused a fetch to 151,835,000 - 316 bp
-past the end - after ~1,364 of 1,423 chunks had already run.
-
-`run_loop_filtering` now returns early when `size_loc_pass` is False, with the
-same row shape (`2n+3`) the filters already discard. Loops near chromosome ends
-are dropped cleanly instead of aborting the run.
-
-Note there is **no resume**: the intermediate CSV is written every 100 chunks
-but never read back, so a restarted chromosome begins from chunk 1.
+The `subsets`, `resolution`, `nproc` and `fdrThreshold` values near the top of
+each generator, and the `perReplicateDir` / `combinedReplicateDir` layout, need
+editing to match your project. The generators require SLURM (`sbatch`); to run
+without a scheduler, call the two Python scripts directly as shown above.
 
 ## Example Workflow
+
+`{condition}` below is one entry of the `subsets` array in the generators, and
+`{date}` is the `YYMMDD` stamp the generators put on their output directory.
 
 ```bash
 # 1. Set up environment
@@ -240,14 +223,17 @@ mamba activate absloopquantTB
 
 # 2. Calculate P(s) curves
 bash 1.1_calculate_P_s_curves_general.sh
-cd qshs/250101_calculate_P_s_curves/
-sbatch calculate_P_s_curves_pTh17-1.sh
+cd qshs/{date}_calculate_P_s_curves/
+sbatch calculate_P_s_curves_{condition}.sh
 # Wait for jobs to complete...
 
 # 3. Filter loops
 bash 1.2_filter_loops.sh
-cd qshs/250101_filter_loops_per_chr_fdr0.01/
-sbatch filter_loops_pTh17-1_chr1.sh
-sbatch filter_loops_pTh17-1_chr2.sh
+cd qshs/{date}_filter_loops_per_chr_fdr0.01/
+sbatch filter_loops_{condition}_chr1.sh
+sbatch filter_loops_{condition}_chr2.sh
 # ... etc
 ```
+
+Step 2 must not start until step 1 has finished for every sample it will read -
+the filter reads the P(s) curve of each replicate and of the combined sample.

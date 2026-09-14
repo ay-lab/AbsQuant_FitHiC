@@ -51,6 +51,23 @@ __pycache__/
 venv/
 *.egg-info/
 
+# --- Site-local, deliberately not published ---------------------------------
+# These exist on the maintainer's machine but are NOT part of the repo, because
+# they only mean something to someone with access to the original LJI cluster.
+#
+#   README.local.md            maintainer notes: the upstream bug this fork
+#                              fixes, cluster paths, provenance of the env.
+#   absloopquantTB_env.lock.yml
+#                              exact build-pinned export of the env as built on
+#                              that cluster (linux-64, needs the pkgs/main
+#                              channel). Regenerate with
+#                              archive/export_absloopquantTB_env.sh.
+#
+# Users of this repo build the environment from absloopquantTB_env.yml, which is
+# portable and is the only spec the repo ships.
+README.local.md
+*.lock.yml
+
 # --- Editors / OS -----------------------------------------------------------
 .DS_Store
 ._*

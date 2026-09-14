@@ -13,10 +13,10 @@
 #    here first, so it needs no install.
 #
 # Build with:
-#     bash create_absloopquantTB_env.sh
+#     bash 0.0_create_absloopquantTB_env.sh
 #
-# For the exact, build-pinned env that was validated on the LJI cluster, use
-# absloopquantTB_env.lock.yml (linux-64 only).
+# Nothing here is site-specific: it resolves from conda-forge and bioconda on
+# any platform, and needs no cluster or module system.
 name: absloopquantTB
 channels:
   - conda-forge

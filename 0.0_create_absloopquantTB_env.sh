@@ -1,14 +1,16 @@
 #!/bin/bash
 
-# Create the absloopquantTB mamba environment.
+# Create the absloopquantTB mamba environment from absloopquantTB_env.yml.
 #
-#   bash create_absloopquantTB_env.sh          # portable solve (any platform)
-#   bash create_absloopquantTB_env.sh --lock   # exact linux-64 rebuild
-#   ENV_NAME=absloopquantTB2 bash create_absloopquantTB_env.sh   # side-by-side
-#   ENV_PREFIX=/path/to/envs/absloopquantTB bash create_absloopquantTB_env.sh
+#   bash 0.0_create_absloopquantTB_env.sh
+#   ENV_NAME=absloopquantTB2 bash 0.0_create_absloopquantTB_env.sh   # side-by-side
+#   ENV_PREFIX=/path/to/envs/absloopquantTB bash 0.0_create_absloopquantTB_env.sh
 #
 # ENV_PREFIX builds a prefix env at a path you choose instead of a named env in
 # the conda root. Prefer it when home is small, quota'd, or flaky.
+#
+# Requires mamba (or conda) on PATH. Everything resolves from conda-forge and
+# bioconda; no cluster, module system or site configuration is needed.
 
 set -uo pipefail
 
@@ -20,19 +22,17 @@ scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 envName="${ENV_NAME:-absloopquantTB}"
 ymlFile="${scriptDir}/absloopquantTB_env.yml"
-useLock=0
 
 for arg in "$@"; do
     case "$arg" in
-        --lock) useLock=1; ymlFile="${scriptDir}/absloopquantTB_env.lock.yml" ;;
-        -h|--help) sed -n '3,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        -h|--help) sed -n '3,14p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
 done
 
 echo "=================================================="
 echo "Creating mamba environment: ${envName}"
-echo "  spec: $(basename "${ymlFile}")$( ((useLock)) && echo '  (exact, linux-64 only)' )"
+echo "  spec: $(basename "${ymlFile}")"
 echo "=================================================="
 
 if [ ! -f "${ymlFile}" ]; then

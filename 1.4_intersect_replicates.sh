@@ -27,15 +27,6 @@
 #
 #   sbatch --export=ALL,FITHIC_FILES="/path/rep1.txt /path/rep2.txt.gz" \
 #     1.4_intersect_replicates.sh
-#
-# For more than a couple of replicates, list them in a file instead:
-#
-#   FITHIC_FILE_LIST=my_fithic_files.txt bash 1.4_intersect_replicates.sh
-#
-#   sbatch --export=ALL,FITHIC_FILE_LIST=my_fithic_files.txt \
-#     1.4_intersect_replicates.sh
-#
-# See examples/fithic_files.example.txt for the format.
 # ---------------------------------------------------------------------------
 #
 # Input  (from 1.3): <resultsRoot>/filtered_loops_<resKb>kb_fdr<fdr>/<condition>/
@@ -55,20 +46,15 @@ source ~/.bashrc
 read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
 
 # Which fithic files to intersect against, in order of precedence:
-#   1. FITHIC_FILES     - a space-separated list, used for every condition
-#   2. FITHIC_FILE_LIST - a manifest file, one path per line
-#   3. the fithicFiles array below, if you fill it in
-#   4. otherwise derived from fithicDir + replicateNamesList + fithicTemplate
+#   1. FITHIC_FILES - a space-separated list, used for every condition
+#   2. the fithicFiles array below, if you fill it in
+#   3. otherwise derived from fithicDir + replicateNamesList + fithicTemplate
 fithicFiles=()
 if [ -n "${FITHIC_FILES:-}" ]; then
     read -r -a fithicFiles <<< "${FITHIC_FILES}"
 fi
 
-# Manifest of fithic files. Lines are "<path>" (every condition) or
-# "<condition>  <path>" (that one only). See examples/fithic_files.example.txt
-fithicFileList="${FITHIC_FILE_LIST:-}"
-
-# Biological replicates, used only when deriving paths (case 4 above).
+# Biological replicates, used only when deriving paths (case 3 above).
 read -r -a replicateNamesList <<< "${REPLICATE_NAMES:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
 
 # Root of per-replicate fithic output
@@ -94,31 +80,6 @@ resKb=$((resolution / 1000))
 inputDir="${resultsRoot}/filtered_loops_${resKb}kb_fdr${fdrThreshold}"
 outputDir="${resultsRoot}/fithic_filtered_loops_bioreplicates_${resKb}kb_fdr${fdrThreshold}/loops"
 pythonFile="${workingDir}/1.4_intersect_replicates.py"
-
-# Emit the fithic paths a manifest gives for one condition, one per line.
-# A line with a single field applies to every condition; a line with two
-# applies only to the named one.
-read_fithic_manifest() {
-    local manifest="$1" cond="$2"
-    awk -v cond="${cond}" '
-        { sub(/#.*/, "") }
-        { gsub(/^[[:space:]]+|[[:space:]]+$/, "") }
-        !NF { next }
-        {
-            n = split($0, f, /[[:space:]]+/)
-            if (n == 1) { print f[1]; next }
-            if (f[1] != cond) next
-            path = f[2]
-            for (i = 3; i <= n; i++) path = path " " f[i]
-            print path
-        }
-    ' "${manifest}"
-}
-
-if [ -n "${fithicFileList}" ] && [ ! -f "${fithicFileList}" ]; then
-    echo "Error: FITHIC_FILE_LIST not found: ${fithicFileList}"
-    exit 1
-fi
 
 mkdir -p ${outputDir}
 
@@ -154,17 +115,6 @@ for subset in ${subsets[@]}; do
     subsetFithicFiles=()
     if [ ${#fithicFiles[@]} -gt 0 ]; then
         subsetFithicFiles=("${fithicFiles[@]}")
-    elif [ -n "${fithicFileList}" ]; then
-        while IFS= read -r f; do
-            [ -n "${f}" ] || continue
-            if [ -f "${f}" ]; then
-                subsetFithicFiles+=("${f}")
-            elif [ -f "${f}.gz" ]; then
-                subsetFithicFiles+=("${f}.gz")
-            else
-                echo "  Warning: listed in ${fithicFileList} but not found: ${f}"
-            fi
-        done < <(read_fithic_manifest "${fithicFileList}" "${subset}")
     else
         for replicateName in ${replicateNamesList[@]}; do
             f="${fithicDir}/${replicateName}/fithic/${resolution}/${replicateName}.${fithicTemplate}"

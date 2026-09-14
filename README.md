@@ -82,6 +82,22 @@ This will:
 - Generate SLURM scripts in `qshs/{date}_calculate_P_s_curves/`
 - Create one script per subset
 
+#### Arguments
+
+Set as environment variables. The defaults point at the original project, so the required ones must be changed for your own data.
+
+**Required:**
+- `SUBSETS`: Space-separated list of conditions to process
+- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.mcool`
+- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, as `<dir>/{condition}/cool/{condition}.mcool`
+
+**Optional:**
+- `RESULTS_DIR`: Output root, shared by steps 1-4 (default: `$PWD/results`)
+- `P_S_CURVES_DIR`: Output directory for P(s) curves (default: `{RESULTS_DIR}/P_s_curves`)
+- `WORKING_DIR`: Directory containing the `.py` files (default: `$PWD`)
+- `RESOLUTION`: Resolution in base pairs (default: 10000)
+- `NPROC`: Number of processors requested per generated job (default: 30)
+
 #### Run Python Script Directly
 
 ```bash
@@ -140,6 +156,25 @@ This will:
 - Find fithic loop files
 - Generate SLURM scripts in `qshs/{date}_filter_loops_per_chr_fdr{fdr}/`
 - Create one script per chromosome per subset
+
+#### Arguments
+
+Set as environment variables. The defaults point at the original project, so the required ones must be changed for your own data.
+
+**Required:**
+- `SUBSETS`: Space-separated list of conditions to process
+- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.mcool`
+- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, holding both `<dir>/{condition}/cool/{condition}.mcool` and `<dir>/{condition}/fithic/{resolution}/{condition}.{FITHIC_TEMPLATE}`
+
+**Optional:**
+- `CHROMS`: Space-separated list of chromosomes to write jobs for (default: `chr1` through `chr19`)
+- `FITHIC_TEMPLATE`: Fithic filename after the leading `{condition}.` (default: `L20000.U3000000.p2.b200.spline_pass2.res{resolution}.significances.txt.gz`)
+- `RESULTS_DIR`: Output root, shared by steps 1-4 (default: `$PWD/results`)
+- `P_S_CURVES_DIR`: Directory of P(s) curves from step 1 (default: `{RESULTS_DIR}/P_s_curves`)
+- `WORKING_DIR`: Directory containing the `.py` files (default: `$PWD`)
+- `RESOLUTION`: Resolution in base pairs (default: 10000)
+- `FDR_THRESHOLD`: FDR threshold for significance (default: 0.01)
+- `NPROC`: Number of processors requested per generated job (default: 30)
 
 #### Run Python Script Directly
 

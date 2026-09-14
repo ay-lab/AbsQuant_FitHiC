@@ -4,10 +4,12 @@ This package provides tools for calculating P(s) curves from Hi-C data and filte
 
 ## Overview
 
-The AbsLoopQuant workflow consists of two main steps:
+The AbsLoopQuant workflow consists of four steps:
 
 1. **Calculate P(s) curves** - Compute probability of contact as a function of genomic distance from Hi-C cooler files
 2. **Filter loops** - Filter loop calls based on size, location, NaN regions, read counts, and global maximum distance criteria
+3. **Concatenate** - Join the per-chromosome output of step 2 into one loop table per condition
+4. **Intersect** - Ask which of those loops are also called by fithic in each individual replicate
 
 ## Files
 
@@ -15,6 +17,9 @@ The AbsLoopQuant workflow consists of two main steps:
 - **`1.1_calculate_P_s_curves_general.sh`** - Bash script to generate SLURM jobs for P(s) curve calculation
 - **`1.2_filter_loops.py`** - Filter loops per chromosome using quantitative criteria
 - **`1.2_filter_loops.sh`** - Bash script to generate SLURM jobs for loop filtering
+- **`1.3_concat_loops.sh`** - Concatenate the per-chromosome loop tables into one per condition
+- **`1.4_intersect_replicates.py`** - Intersect a loop set with per-replicate fithic calls
+- **`1.4_intersect_replicates.sh`** - Driver for the intersection across conditions and replicates
 - **`looptools.py`** - Helper module with loop analysis utilities
 - **`0.0_create_absloopquantTB_env.sh`** - Builds the `absloopquantTB` mamba environment and verifies its imports
 - **`absloopquantTB_env.yml`** - Conda/mamba environment spec
@@ -187,6 +192,79 @@ Loops must pass all of the following criteria:
 - **Filtering criteria file**: `loop_filtering_criteria.fdr{fdr}.{chromosome}.csv` - Contains all filtering criteria for each loop
 - **Filtered loops file**: `filtered_loops.fdr{fdr}.{chromosome}.txt` - Final filtered loops passing all criteria
 
+### Step 3: Concatenate Loops Across Chromosomes
+
+Step 2 writes one file per chromosome. Step 3 joins them into a single table per
+condition, and renames the columns to fithic's, which is what lets step 4 join
+the two on coordinates.
+
+```bash
+bash 1.3_concat_loops.sh
+```
+
+Unlike steps 1 and 2 this does the work directly rather than generating SLURM
+scripts - it is a `cat`/`awk` pass over ~20 small files.
+
+| | |
+|---|---|
+| Input | `<results>/filtered_loops_per_chr_fdr<fdr>/{condition}/filtered_loops.fdr<fdr>.<chrom>.txt` |
+| Output | `<results>/filtered_loops_<res>kb_fdr<fdr>/{condition}/{condition}.coords.fdr<fdr>.txt` |
+| Columns | `chr1  fragmentMid1  chr2  fragmentMid2  size` |
+
+The `chroms` array near the top lists mouse autosomes (`chr1`..`chr19`). Change
+it for other assemblies - human needs `chr1`..`chr22` - and it must match what
+step 2 was actually run on.
+
+An existing output file is left alone; pass `FORCE=1` to rebuild it. A missing
+chromosome is reported and skipped rather than aborting the condition, so check
+the `N chromosomes, M missing` line before using the result.
+
+### Step 4: Intersect With Per-Replicate fithic Calls
+
+Steps 1-3 produce high-confidence loops from the combined sample. Step 4 asks,
+for each loop, which individual replicates fithic also called it in.
+
+```bash
+bash 1.4_intersect_replicates.sh
+```
+
+The fithic files are chosen in this order of precedence:
+
+1. `FITHIC_FILES` - a space-separated list, applied to every condition:
+   ```bash
+   FITHIC_FILES="/path/rep1.significances.txt /path/rep2.significances.txt.gz" \
+     bash 1.4_intersect_replicates.sh
+   ```
+2. the `fithicFiles` array in the script, if you fill it in
+3. otherwise derived from `FITHIC_DIR` and `replicateNamesList` using the layout
+   `$FITHIC_DIR/<replicate>/fithic/<resolution>/<replicate>.<template>`
+
+`.gz` files are read directly - there is no decompression step.
+
+| | |
+|---|---|
+| Input | step 3's `{condition}.coords.fdr<fdr>.txt`, plus one fithic file per replicate |
+| Output | `<results>/fithic_filtered_loops_bioreplicates_<res>kb_fdr<fdr>/loops/{condition}/<replicate>.<...>.fdr<fdr>.significances.txt` |
+
+Each output is an inner join on `chr1`, `fragmentMid1`, `chr2`, `fragmentMid2`,
+carrying the replicate's own `contactCount`, `p-value`, `q-value` and biases
+through. The run prints how many of the loop set each replicate recovered.
+
+The replicate table is **not** q-value filtered by default: the loop set is
+already FDR-filtered, and the question here is presence, not independent
+significance. Pass `--apply_fdr` to the Python script if you want both.
+
+To run the intersection on its own, outside the driver:
+
+```bash
+python3 1.4_intersect_replicates.py \
+    --combined_loops_file /path/to/{condition}.coords.fdr0.01.txt \
+    --replicate_files rep1.significances.txt rep2.significances.txt.gz \
+    --output_dir /path/to/output \
+    --fdr_threshold 0.01 \
+    --verbose
+```
+
 ## Configuring the job generators
 
 `1.1_calculate_P_s_curves_general.sh` and `1.2_filter_loops.sh` resolve this
@@ -198,6 +276,15 @@ files:
 BASE_DIR=/path/to/your/hic-project bash 1.2_filter_loops.sh
 WORKING_DIR=/path/to/AbsLoopQuant_TB bash 1.2_filter_loops.sh   # code elsewhere
 ```
+
+| Variable | Used by | Meaning |
+|---|---|---|
+| `WORKING_DIR` | all | This repo. Defaults to the script's own directory. |
+| `BASE_DIR` | all | The data project root. |
+| `RESULTS_DIR` | 1.3, 1.4 | Where step 2 wrote its output. Set it to keep steps 2-4 pointed at one place. |
+| `FITHIC_DIR` | 1.4 | Root of per-replicate fithic output, when deriving paths. |
+| `FITHIC_FILES` | 1.4 | Explicit space-separated list of fithic files. |
+| `FORCE` | 1.3 | Overwrite an existing concatenated table. |
 
 `BASE_DIR` is expected to hold HiC-Pro-style output:
 
@@ -233,7 +320,20 @@ cd qshs/{date}_filter_loops_per_chr_fdr0.01/
 sbatch filter_loops_{condition}_chr1.sh
 sbatch filter_loops_{condition}_chr2.sh
 # ... etc
+# Wait for all chromosomes to complete...
+
+# 4. Concatenate the per-chromosome tables
+bash 1.3_concat_loops.sh
+
+# 5. Intersect with the per-replicate fithic calls
+bash 1.4_intersect_replicates.sh
 ```
 
-Step 2 must not start until step 1 has finished for every sample it will read -
-the filter reads the P(s) curve of each replicate and of the combined sample.
+Each step consumes the previous one's output, so they are strictly ordered.
+Two places where that bites:
+
+- Step 2 must not start until step 1 has finished for **every** sample it will
+  read - the filter reads the P(s) curve of each replicate and of the combined
+  sample.
+- Step 3 must not start until every chromosome job from step 2 has finished. It
+  will happily concatenate a partial set and only warn about what is missing.

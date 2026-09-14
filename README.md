@@ -11,6 +11,16 @@ The AbsLoopQuant workflow consists of four steps:
 3. **Concatenate** - Join the per-chromosome output of step 2 into one loop table per condition
 4. **Intersect** - Ask which of those loops are also called by fithic in each individual replicate
 
+## Origin and Citation
+
+This toolkit is adapted from [`ahansenlab/AbsQuant_analysis_code`](https://github.com/ahansenlab/AbsQuant_analysis_code), the analysis code for:
+
+> J. M. Jusuf, J. H. Yang, J. Toppen, S. Grosse-Holz, M. Gabriele, P. Mach, I. M. Flyamer, C. Zechner, L. Giorgetti, L. A. Mirny, A. S. Hansen, Genome-wide absolute quantification of chromatin looping. *Nat. Struct. Mol. Biol.* (2026). doi: [10.1038/s41594-026-01819-2](https://doi.org/10.1038/s41594-026-01819-2)
+
+The original code calls loops with **Mustache** from Micro-C maps. These scripts adapt the same quantification and filtering approach to **fithic** loop calls, which is what step 2 reads and what step 4 intersects against.
+
+Please cite the paper above if you use this.
+
 ## Files
 
 - **`1.1_calculate_P_s_curves_general.py`** - Calculate P(s) curves from Hi-C cooler files
@@ -126,9 +136,6 @@ python3 1.1_calculate_P_s_curves_general.py \
 - `--nproc`: Number of processors (default: 30)
 - `--verbose`: Enable verbose output (default: True)
 
-Step 1 is resumable but not self-correcting: it skips any sample whose output
-file already exists. After a job is killed mid-write, delete the partial
-`.P_s_*bp.txt` before rerunning or the truncated file is kept silently.
 
 #### Output
 
@@ -372,10 +379,3 @@ bash 1.4_intersect_replicates.sh
 ```
 
 Each step consumes the previous one's output, so they are strictly ordered.
-Two places where that bites:
-
-- Step 2 must not start until step 1 has finished for **every** sample it will
-  read - the filter reads the P(s) curve of each replicate and of the combined
-  sample.
-- Step 3 must not start until every chromosome job from step 2 has finished. It
-  will happily concatenate a partial set and only warn about what is missing.

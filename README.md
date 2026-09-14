@@ -21,6 +21,7 @@ The AbsLoopQuant workflow consists of four steps:
 - **`1.4_intersect_replicates.py`** - Intersect a loop set with per-replicate fithic calls
 - **`1.4_intersect_replicates.sh`** - Driver for the intersection across conditions and replicates
 - **`looptools.py`** - Helper module with loop analysis utilities
+- **`examples/fithic_files.example.txt`** - Template `FITHIC_FILE_LIST` manifest for step 4
 - **`0.0_create_absloopquantTB_env.sh`** - Builds the `absloopquantTB` mamba environment and verifies its imports
 - **`absloopquantTB_env.yml`** - Conda/mamba environment spec
 
@@ -235,8 +236,18 @@ The fithic files are chosen in this order of precedence:
    FITHIC_FILES="/path/rep1.significances.txt /path/rep2.significances.txt.gz" \
      bash 1.4_intersect_replicates.sh
    ```
-2. the `fithicFiles` array in the script, if you fill it in
-3. otherwise derived from `FITHIC_DIR` and `replicateNamesList` using the layout
+2. `FITHIC_FILE_LIST` - a manifest file, for more than a couple of replicates:
+   ```bash
+   FITHIC_FILE_LIST=my_fithic_files.txt bash 1.4_intersect_replicates.sh
+   ```
+   Blank lines and `#`-comments are ignored; each remaining line is either
+   `<path>` (used for every condition) or `<condition>  <path>` (that condition
+   only). Copy [`examples/fithic_files.example.txt`](examples/fithic_files.example.txt)
+   as a starting point. A manifest replaces `FITHIC_DIR` and `REPLICATE_NAMES`:
+   nothing is derived, and a listed file that is missing is reported and
+   skipped rather than fatal.
+3. the `fithicFiles` array in the script, if you fill it in
+4. otherwise derived from `FITHIC_DIR` and `REPLICATE_NAMES` using the layout
    `$FITHIC_DIR/<replicate>/fithic/<resolution>/<replicate>.<template>`
 
 `.gz` files are read directly - there is no decompression step.
@@ -299,7 +310,8 @@ sbatch --export=ALL,SUBSETS="condA condB",PER_REPLICATE_DIR=/path/to/matrix \
 | `RESULTS_DIR` | all | Output root. Defaults to `$PWD/results`; set once to pin all four steps. |
 | `P_S_CURVES_DIR` | 1.1, 1.2 | P(s) curves. Same default on both, so they line up. |
 | `FITHIC_DIR` | 1.4 | Root of per-replicate fithic output, when deriving paths. |
-| `FITHIC_FILES` | 1.4 | Explicit space-separated list of fithic files; wins over `FITHIC_DIR`. |
+| `FITHIC_FILES` | 1.4 | Explicit space-separated list of fithic files; wins over everything below. |
+| `FITHIC_FILE_LIST` | 1.4 | Manifest file listing fithic paths - see `examples/fithic_files.example.txt`. |
 | `FITHIC_TEMPLATE` | 1.2, 1.4 | Filename after the leading `<name>.`. |
 | `REPLICATE_NAMES` | 1.4 | Replicates to derive fithic paths for. |
 | `RESOLUTION` / `NPROC` / `FDR_THRESHOLD` | all | Defaults `10000` / `30` / `0.01`. |

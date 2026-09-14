@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #SBATCH --job-name=calculate_P_s_curves
 #SBATCH --output=1.1_calculate_P_s_curves_general_%j.out
 #SBATCH --time=24:00:00
@@ -11,15 +10,10 @@
 # This script generates jobs; it does not compute anything itself.
 #
 # ---------------------------------------------------------------------------
-# HOW TO RUN   (run it from inside the repo -- workingDir defaults to $PWD)
+# HOW TO RUN   (workingDir defaults to $PWD)
 #
 #   sbatch 1.1_calculate_P_s_curves_general.sh
 #   bash   1.1_calculate_P_s_curves_general.sh
-#
-# bash is fine for THIS script: it only writes job scripts and takes seconds.
-# It is NOT fine for the jobs it generates -- those run for hours per sample and
-# must be submitted with sbatch. Running them with bash puts the whole
-# calculation on a login node, where it will be throttled or killed.
 #
 # Override any INPUT VARIABLE below on the command line:
 #
@@ -35,22 +29,16 @@ source ~/.bashrc
 # ===========================================================================
 # INPUT VARIABLES
 # ===========================================================================
-
-# Conditions to process; one job script is written per entry.
-read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
-
-# Per-replicate matrix directory. Expected layout:
-#   ${perReplicateDir}/<condition>-<rep>/cool/<condition>-<rep>.mcool
+read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}" # Conditions to process
+# Per-replicate matrix directory. Expected mcool
 perReplicateDir="${PER_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro/results/hicpro/hic_results/matrix}"
 
-# Combined-replicate matrix directory. Expected layout:
-#   ${combinedReplicateDir}/<condition>/cool/<condition>.mcool
+# Combined-replicate matrix directory. Expected mcool
 combinedReplicateDir="${COMBINED_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix}"
 
-# Output root, shared by steps 1.1 - 1.4. Set RESULTS_DIR once and the whole
-# chain stays in one place.
+# Output root, shared by steps 1.1 - 1.4.
 resultsRoot="${RESULTS_DIR:-$(pwd)/results}"
-# Where the P(s) curves land. Step 1.2 reads this same default.
+# Where the P(s) curves land.
 pScurvesDir="${P_S_CURVES_DIR:-${resultsRoot}/P_s_curves}"
 
 # This repo, holding the .py files. Defaults to the directory you run from.

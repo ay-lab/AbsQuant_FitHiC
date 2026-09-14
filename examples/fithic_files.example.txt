@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Example FITHIC_FILE_LIST for 1.4_intersect_replicates.sh
+#
+#   FITHIC_FILE_LIST=examples/fithic_files.example.txt bash 1.4_intersect_replicates.sh
+#
+#   sbatch --export=ALL,FITHIC_FILE_LIST=examples/fithic_files.example.txt \
+#     1.4_intersect_replicates.sh
+#
+# Copy this file, point the paths at your own fithic output, and pass it in.
+# It replaces both FITHIC_DIR and REPLICATE_NAMES: when a manifest is given,
+# nothing is derived and only the files listed here are used.
+# ---------------------------------------------------------------------------
+#
+# FORMAT
+#   Blank lines and everything after a '#' are ignored.
+#   Each remaining line is one of:
+#
+#     <path>                 intersect this file against EVERY condition
+#     <condition>  <path>    intersect it against that ONE condition only
+#
+#   <condition> must match an entry in SUBSETS.
+#   Paths may be absolute or relative to where you run the script from, and
+#   may be plain text or .gz - both are read directly. Paths must not contain
+#   spaces or '#'.
+#
+#   A file that does not exist is reported and skipped, not fatal; a '.gz'
+#   alongside a listed plain path is picked up automatically.
+#
+# ---------------------------------------------------------------------------
+
+# --- Case 1: the same replicates for every condition -----------------------
+# Useful when SUBSETS has a single entry, or when every condition is being
+# compared against the same set of sequencing runs.
+#
+# /path/to/hicpro/matrix/S1/fithic/10000/S1.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+# /path/to/hicpro/matrix/S2/fithic/10000/S2.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+
+
+# --- Case 2: different replicates per condition ----------------------------
+# The usual case with several conditions: each one has its own biological
+# replicates, and only those should be intersected against its loop set.
+
+npTh17  /path/to/hicpro/matrix/npTh17-1/fithic/10000/npTh17-1.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+npTh17  /path/to/hicpro/matrix/npTh17-2/fithic/10000/npTh17-2.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+npTh17  /path/to/hicpro/matrix/npTh17-3/fithic/10000/npTh17-3.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+
+Treg    /path/to/hicpro/matrix/Treg-1/fithic/10000/Treg-1.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+Treg    /path/to/hicpro/matrix/Treg-2/fithic/10000/Treg-2.L20000.U3000000.p2.b200.spline_pass2.res10000.significances.txt.gz
+
+# The two forms can be mixed: a bare path still applies to every condition,
+# including npTh17 and Treg above.

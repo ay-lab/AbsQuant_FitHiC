@@ -9,17 +9,13 @@
 
 # Concatenates the per-chromosome output of 1.2 into one loop table per
 # condition, renaming the columns to fithic's so 1.4 can join on coordinates.
-# Unlike 1.1 and 1.2 this does the work itself rather than generating jobs.
+# Unlike 1.1 and 1.2 this does the work itself rather than generating SLURM jobs.
 #
 # ---------------------------------------------------------------------------
-# HOW TO RUN   (run it from inside the repo -- workingDir defaults to $PWD)
+# HOW TO RUN   (workingDir defaults to $PWD)
 #
-#   sbatch 1.3_concat_loops.sh
+#   sbatch 1.3_concat_loops.sh (preferable)
 #   bash   1.3_concat_loops.sh
-#
-# Prefer sbatch. This step is usually quick, but it reads every per-chromosome
-# table for every condition, and on a large run that is minutes of I/O on a
-# shared login node. Use bash only for a small test.
 #
 # Override any INPUT VARIABLE below on the command line:
 #
@@ -41,15 +37,16 @@ source ~/.bashrc
 # ===========================================================================
 # INPUT VARIABLES
 # ===========================================================================
+# THIS MUST MATCH WHAT 1.2 WAS RUN ON.
 
-# Conditions to concatenate.
+# Conditions to concatenate. 
 read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
 
 # Chromosomes to concatenate, in output order. Mouse autosomes by default; use
-# chr1..chr22 for human. Must match what 1.2 was actually run on.
+# chr1..chr22 for human.
 read -r -a chroms <<< "${CHROMS:-chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19}"
 
-# Output root, shared by steps 1.1 - 1.4. Must match what 1.2 used.
+# Output root, shared by steps 1.1 - 1.4.
 resultsRoot="${RESULTS_DIR:-$(pwd)/results}"
 
 # This repo. Defaults to the directory you run from.

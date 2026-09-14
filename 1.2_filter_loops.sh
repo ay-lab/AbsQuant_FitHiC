@@ -11,15 +11,10 @@
 # This script generates jobs; it does not filter anything itself.
 #
 # ---------------------------------------------------------------------------
-# HOW TO RUN   (run it from inside the repo -- workingDir defaults to $PWD)
+# HOW TO RUN   (workingDir defaults to $PWD)
 #
 #   sbatch 1.2_filter_loops.sh
 #   bash   1.2_filter_loops.sh
-#
-# bash is fine for THIS script: it only writes job scripts and takes seconds.
-# It is NOT fine for the jobs it generates -- each chromosome runs for hours and
-# must be submitted with sbatch. Running them with bash puts the whole filter on
-# a login node, where it will be throttled or killed.
 #
 # Override any INPUT VARIABLE below on the command line:
 #
@@ -36,31 +31,27 @@ source ~/.bashrc
 # INPUT VARIABLES
 # ===========================================================================
 
-# Conditions to process; one job script per chromosome is written per entry.
-read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}"
+read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}" # Conditions to process.
 
-# Chromosomes to write jobs for. Mouse autosomes by default; use chr1..chr22
+# Chromosomes to write jobs for. Mouse autosomes by default; use chr1..chr22 for human.
 # for human, and add chrX / chrY if you want them.
 read -r -a chroms <<< "${CHROMS:-chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19}"
 
-# Per-replicate matrix directory. Expected layout:
-#   ${perReplicateDir}/<condition>-<rep>/cool/<condition>-<rep>.mcool
+# Per-replicate matrix directory. Expected mcool
 perReplicateDir="${PER_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro/results/hicpro/hic_results/matrix}"
 
-# Combined-replicate matrix directory. Expected layout:
-#   ${combinedReplicateDir}/<condition>/cool/<condition>.mcool
-#   ${combinedReplicateDir}/<condition>/fithic/<resolution>/<condition>.<fithicTemplate>
+# Combined-replicate matrix directory. Expected mcool
 combinedReplicateDir="${COMBINED_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix}"
 
-# Filename of the fithic call table, after the leading "<condition>.".
+# Filename of the fithic call table.
 fithicTemplate="${FITHIC_TEMPLATE:-L20000.U3000000.p2.b200.spline_pass2.res${RESOLUTION:-10000}.significances.txt.gz}"
 
 # Output root, shared by steps 1.1 - 1.4.
 resultsRoot="${RESULTS_DIR:-$(pwd)/results}"
-# P(s) curves written by 1.1. Same default as 1.1 uses, so the two line up.
+# P(s) curves written by 1.1.
 pScurvesDir="${P_S_CURVES_DIR:-${resultsRoot}/P_s_curves}"
 
-# This repo, holding the .py files. Defaults to the directory you run from.
+# This repo, holding the .py files.
 workingDir="${WORKING_DIR:-$(pwd)}"
 
 resolution="${RESOLUTION:-10000}"

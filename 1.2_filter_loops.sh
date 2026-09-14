@@ -37,11 +37,16 @@ read -r -a subsets <<< "${SUBSETS:-pTh17-1 npTh17 Treg Th1 Th2 Th0}" # Condition
 # for human, and add chrX / chrY if you want them.
 read -r -a chroms <<< "${CHROMS:-chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19}"
 
-# Per-replicate matrix directory. Expected mcool
+# Per-replicate matrix directory. Expected <dir>/<rep>/cool/<rep>.{mcool,cool}
 perReplicateDir="${PER_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro/results/hicpro/hic_results/matrix}"
 
-# Combined-replicate matrix directory. Expected mcool
+# Combined-replicate matrix directory. Expected <dir>/<cond>/cool/<cond>.{mcool,cool}
 combinedReplicateDir="${COMBINED_REPLICATE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix}"
+
+# Cooler file extensions to look for, in order of preference. A multi-resolution
+# .mcool is tried first; a single-resolution .cool is used if no .mcool exists.
+# The python side opens whichever it is given correctly.
+read -r -a coolExts <<< "${COOL_EXTS:-mcool cool}"
 
 # Filename of the fithic call table.
 fithicTemplate="${FITHIC_TEMPLATE:-L20000.U3000000.p2.b200.spline_pass2.res${RESOLUTION:-10000}.significances.txt.gz}"
@@ -92,28 +97,36 @@ for subset in ${subsets[@]}; do
         continue
     fi
     
-    # Build list of per-replicate .mcool files and names
+    # Build list of per-replicate cooler files and names
     perReplicateFiles=()
     replicateNamesList=()
     for repDir in "${replicateDirs[@]}"; do
         repName=$(basename ${repDir})
-        mcoolFile="${repDir}/cool/${repName}.mcool"
-        if [ -f "${mcoolFile}" ]; then
-            perReplicateFiles+=("${mcoolFile}")
+        coolFile=""
+        for ext in ${coolExts[@]}; do
+            cand="${repDir}/cool/${repName}.${ext}"
+            [ -f "${cand}" ] && { coolFile="${cand}"; break; }
+        done
+        if [ -n "${coolFile}" ]; then
+            perReplicateFiles+=("${coolFile}")
             replicateNamesList+=("${repName}")
         fi
     done
     
     if [ ${#perReplicateFiles[@]} -eq 0 ]; then
-        echo "Warning: No .mcool files found for ${subset}, skipping..."
+        echo "Warning: No cooler files found for ${subset}, skipping..."
         continue
     fi
     
     # Combined replicate file
-    combinedMcoolFile="${combinedReplicateDir}/${subset}/cool/${subset}.mcool"
+    combinedMcoolFile=""
+    for ext in ${coolExts[@]}; do
+        cand="${combinedReplicateDir}/${subset}/cool/${subset}.${ext}"
+        [ -f "${cand}" ] && { combinedMcoolFile="${cand}"; break; }
+    done
     
-    if [ ! -f "${combinedMcoolFile}" ]; then
-        echo "Warning: Combined .mcool file not found for ${subset}: ${combinedMcoolFile}"
+    if [ -z "${combinedMcoolFile}" ]; then
+        echo "Warning: No combined .${coolExts[0]}/.${coolExts[1]} file for ${subset} under ${combinedReplicateDir}/${subset}/cool/"
         echo "  Skipping ${subset}..."
         continue
     fi

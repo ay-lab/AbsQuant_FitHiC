@@ -88,7 +88,7 @@ bash 1.1_calculate_P_s_curves_general.sh
 ```
 
 This will:
-- Find all per-replicate and combined `.mcool` files for each subset
+- Find all per-replicate and combined `.mcool` (or `.cool`) files for each subset
 - Generate SLURM scripts in `qshs/{date}_calculate_P_s_curves/`
 - Create one script per subset
 
@@ -98,8 +98,8 @@ Set as environment variables. The defaults point at the original project, so the
 
 **Required:**
 - `SUBSETS`: Space-separated list of conditions to process
-- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.mcool`
-- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, as `<dir>/{condition}/cool/{condition}.mcool`
+- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.{mcool,cool}`
+- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, as `<dir>/{condition}/cool/{condition}.{mcool,cool}`
 
 **Optional:**
 - `RESULTS_DIR`: Output root, shared by steps 1-4 (default: `$PWD/results`)
@@ -124,8 +124,8 @@ python3 1.1_calculate_P_s_curves_general.py \
 #### Arguments
 
 **Required:**
-- `--per_replicate_files`: List of per-replicate `.mcool` file paths
-- `--combined_replicate_file`: Path to combined replicate `.mcool` file
+- `--per_replicate_files`: List of per-replicate `.mcool` or `.cool` file paths
+- `--combined_replicate_file`: Path to the combined replicate `.mcool` or `.cool` file
 - `--per_replicate_names`: List of per-replicate names
 - `--combined_replicate_name`: Name of combined replicate
 - `--output_dir`: Output directory for P(s) curves
@@ -159,7 +159,7 @@ bash 1.2_filter_loops.sh
 ```
 
 This will:
-- Find all per-replicate and combined `.mcool` files
+- Find all per-replicate and combined `.mcool` (or `.cool`) files
 - Find fithic loop files
 - Generate SLURM scripts in `qshs/{date}_filter_loops_per_chr_fdr{fdr}/`
 - Create one script per chromosome per subset
@@ -170,8 +170,8 @@ Set as environment variables. The defaults point at the original project, so the
 
 **Required:**
 - `SUBSETS`: Space-separated list of conditions to process
-- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.mcool`
-- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, holding both `<dir>/{condition}/cool/{condition}.mcool` and `<dir>/{condition}/fithic/{resolution}/{condition}.{FITHIC_TEMPLATE}`
+- `PER_REPLICATE_DIR`: Directory of per-replicate matrices, as `<dir>/{condition}-{rep}/cool/{condition}-{rep}.{mcool,cool}`
+- `COMBINED_REPLICATE_DIR`: Directory of combined-replicate matrices, holding both `<dir>/{condition}/cool/{condition}.{mcool,cool}` and `<dir>/{condition}/fithic/{resolution}/{condition}.{FITHIC_TEMPLATE}`
 
 **Optional:**
 - `CHROMS`: Space-separated list of chromosomes to write jobs for (default: `chr1` through `chr19`)
@@ -204,8 +204,8 @@ python3 1.2_filter_loops.py \
 #### Arguments
 
 **Required:**
-- `--per_replicate_files`: List of per-replicate `.mcool` file paths
-- `--combined_replicate_file`: Path to combined replicate `.mcool` file
+- `--per_replicate_files`: List of per-replicate `.mcool` or `.cool` file paths
+- `--combined_replicate_file`: Path to the combined replicate `.mcool` or `.cool` file
 - `--per_replicate_names`: List of per-replicate names
 - `--combined_replicate_name`: Name of combined replicate
 - `--P_s_curves_dir`: Directory containing P(s) curves
@@ -307,6 +307,29 @@ python3 1.4_intersect_replicates.py \
     --verbose
 ```
 
+## Cooler files: `.mcool` and `.cool`
+
+Both are accepted, everywhere a matrix is read.
+
+A multi-resolution `.mcool` holds several matrices and is opened at
+`<file>::/resolutions/<resolution>`. A single-resolution `.cool` holds one and
+is opened directly. Each form fails on the other, so the file is inspected
+rather than guessed from its extension, and a full `::` URI you pass yourself is
+used untouched.
+
+For a `.cool`, the file's own bin size must equal `--resolution`. A mismatch is
+a hard error rather than a silent substitution, since P(s) curves are indexed in
+units of bins and analysing at the wrong one would corrupt them quietly:
+
+```
+ValueError: /path/S1.cool is a single-resolution cooler with binsize 5000,
+but the requested resolution is 10000. Either pass --resolution 5000, or use
+an .mcool containing 10000.
+```
+
+The generators look for `.mcool` first and fall back to `.cool`; set
+`COOL_EXTS="cool mcool"` to reverse that, or to a single extension to pin it.
+
 ## Running the scripts
 
 Run them **from inside the repo** - `workingDir` defaults to `$PWD`.
@@ -336,8 +359,9 @@ sbatch --export=ALL,SUBSETS="condA condB",PER_REPLICATE_DIR=/path/to/matrix \
 |---|---|---|
 | `SUBSETS` | all | Conditions to process. |
 | `CHROMS` | 1.2, 1.3 | Chromosomes. Defaults to mouse autosomes `chr1`..`chr19`. |
-| `PER_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}-<rep>/cool/{condition}-<rep>.mcool` |
-| `COMBINED_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}/cool/{condition}.mcool`, and `.../fithic/<res>/...` |
+| `PER_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}-<rep>/cool/{condition}-<rep>.{mcool,cool}` |
+| `COMBINED_REPLICATE_DIR` | 1.1, 1.2 | `<dir>/{condition}/cool/{condition}.{mcool,cool}`, and `.../fithic/<res>/...` |
+| `COOL_EXTS` | 1.1, 1.2 | Cooler extensions to try, in order (default: `mcool cool`). |
 | `RESULTS_DIR` | all | Output root. Defaults to `$PWD/results`; set once to pin all four steps. |
 | `P_S_CURVES_DIR` | 1.1, 1.2 | P(s) curves. Same default on both, so they line up. |
 | `FITHIC_DIR` | 1.4 | Root of per-replicate fithic output, when deriving paths. |

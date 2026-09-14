@@ -9,6 +9,51 @@ import argparse
 import sys
 import os
 
+def open_cooler(path, resolution, verbose=False):
+    """Open a cooler at `resolution`, accepting either .mcool or .cool.
+
+    A multi-resolution .mcool holds several matrices and needs the
+    "::/resolutions/<binsize>" URI suffix. A single-resolution .cool is opened
+    directly and already has a fixed binsize. Each form fails on the other, so
+    the file is inspected rather than assumed from its extension.
+
+    A path that already contains "::" is passed through untouched, so an
+    explicit URI still works.
+
+    Args:
+        path: path to a .cool or .mcool file, or a full cooler URI
+        resolution: requested bin size in bp
+        verbose: whether to note single-resolution files
+    Returns:
+        cooler.Cooler
+    Raises:
+        ValueError: if a .cool's own binsize is not `resolution`. Silently
+            analysing at a different resolution would corrupt the P(s) indexing,
+            which is in units of bins.
+    """
+    if '::' in path:
+        return cooler.Cooler(path)
+
+    try:
+        multires = cooler.fileops.is_multires_file(path)
+    except Exception:
+        # Older cooler, or an unreadable header: fall back to the extension.
+        multires = path.endswith('.mcool')
+
+    if multires:
+        return cooler.Cooler(f'{path}::/resolutions/{resolution}')
+
+    clr = cooler.Cooler(path)
+    if clr.binsize != resolution:
+        raise ValueError(
+            f"{path} is a single-resolution cooler with binsize {clr.binsize}, "
+            f"but the requested resolution is {resolution}. Either pass "
+            f"--resolution {clr.binsize}, or use an .mcool containing {resolution}.")
+    if verbose:
+        print(f"    (single-resolution .cool, binsize {clr.binsize})")
+    return clr
+# end def
+
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description='Filter loops per chromosome')
@@ -16,11 +61,11 @@ def parse_arguments():
     parser.add_argument('--per_replicate_files',
                        required=True,
                        nargs='+',
-                       help='List of file paths to per-replicate .mcool files')
+                       help='List of file paths to per-replicate .cool or .mcool files')
     
     parser.add_argument('--combined_replicate_file',
                        required=True,
-                       help='File path to combined-replicate .mcool file')
+                       help='File path to the combined-replicate .cool or .mcool file')
     
     parser.add_argument('--P_s_curves_dir',
                        required=True,
@@ -236,8 +281,7 @@ def load_coolers_and_P_s_curves(args):
             continue
         
         try:
-            cooler_path = f'{replicate_file}::/resolutions/{args.resolution}'
-            coolers[sample_name] = cooler.Cooler(cooler_path)
+            coolers[sample_name] = open_cooler(replicate_file, args.resolution, args.verbose)
             sample_names.append(sample_name)
             if args.verbose:
                 print(f"  ✓ Successfully loaded: {sample_name}")
@@ -259,8 +303,8 @@ def load_coolers_and_P_s_curves(args):
         print(f"  ✗ Warning: Combined cooler file not found: {args.combined_replicate_file}")
     else:
         try:
-            combined_cooler_path = f'{args.combined_replicate_file}::/resolutions/{args.resolution}'
-            coolers[combined_sample_name] = cooler.Cooler(combined_cooler_path)
+            coolers[combined_sample_name] = open_cooler(
+                args.combined_replicate_file, args.resolution, args.verbose)
             if args.verbose:
                 print(f"  ✓ Successfully loaded: {combined_sample_name}")
         except Exception as e:

@@ -1,0 +1,60 @@
+# --- Generated SLURM job scripts -------------------------------------------
+# 1.1_calculate_P_s_curves_general.sh and 1.2_filter_loops.sh write per-sample
+# and per-chromosome job scripts under qshs/<date>_.../ . They are derived from
+# the generators plus the cluster paths in them, so they are never source.
+qshs/
+
+# --- SLURM / job logs -------------------------------------------------------
+*.out
+*.err
+slurm-*.out
+*_[0-9]*.out
+
+# --- Analysis outputs -------------------------------------------------------
+# Written by --output_dir / --P_s_curves_dir; can be very large.
+results/
+P_s_curves/
+filtered_loops.*.txt
+loop_filtering_criteria*.csv
+*.P_s_*bp.txt
+
+# --- Hi-C data --------------------------------------------------------------
+# Never commit matrices or loop calls; they are GB-scale.
+*.cool
+*.mcool
+*.hic
+*.pairs
+*.pairs.gz
+*.validPairs
+*.validPairs.gz
+*.matrix
+*.bed
+*.bedpe
+*.bigWig
+*.bw
+significances.txt*
+*.h5
+*.hdf5
+
+# --- Conda / mamba ----------------------------------------------------------
+# The env is built from the yml; never commit a materialised prefix.
+envs/conda/
+.conda/
+*_explicit.txt
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# --- Editors / OS -----------------------------------------------------------
+.DS_Store
+._*
+.vscode/
+.idea/
+*.swp
+*~

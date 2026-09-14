@@ -20,8 +20,12 @@ nproc=30
 fdrThreshold=0.01
 
 # Directories
-baseDir="/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay"
-workingDir="/home/bbabatunde/packages/25-09-absloopquant/AbsLoopQuant_TB"
+# workingDir is this repo. Derived from the script's own location so a clone
+# works anywhere; override with WORKING_DIR= if you keep the code elsewhere.
+workingDir="${WORKING_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+# baseDir is the DATA project. It is site-specific -- override with BASE_DIR=
+# rather than editing this file.
+baseDir="${BASE_DIR:-/mnt/BioAdHoc/Groups/vd-ay/bbabatunde/projects/25-06-Kuchroo-Ay}"
 perReplicateDir="${baseDir}/yard/251014_HiCPro/results/hicpro/hic_results/matrix"
 combinedReplicateDir="${baseDir}/yard/251014_HiCPro_Combined/results/hicpro/hic_results/matrix"
 pythonFile="${workingDir}/1.2_filter_loops.py"

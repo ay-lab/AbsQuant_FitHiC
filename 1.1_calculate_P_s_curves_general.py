@@ -17,9 +17,14 @@ def parse_arguments():
                        required=True,
                        help='File path to combined-replicate .mcool file')
     
+    # looptools.py ships in this repo, next to this script, so default to the
+    # script's own directory. The previous default pointed at a separate
+    # AbsLoopQuant_analysis_code checkout, which made a clone of this repo fail
+    # at `import looptools` anywhere but the machine it was written on.
     parser.add_argument('--looptools_path',
-                       default='/home/bbabatunde/packages/25-09-absloopquant/AbsLoopQuant_analysis_code',
-                       help='Path to looptools directory (default: /home/bbabatunde/packages/25-09-absloopquant/AbsLoopQuant_analysis_code)')
+                       default=os.path.dirname(os.path.abspath(__file__)),
+                       help='Path to the directory containing looptools.py '
+                            '(default: the directory holding this script)')
     
     parser.add_argument('--resolution',
                        type=int,

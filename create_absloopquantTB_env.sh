@@ -1,52 +1,112 @@
 #!/bin/bash
 
-# Script to create absloopquantTB mamba environment from .yml file
+# Create the absloopquantTB mamba environment.
+#
+#   bash create_absloopquantTB_env.sh          # portable solve (any platform)
+#   bash create_absloopquantTB_env.sh --lock   # exact linux-64 rebuild
+#   ENV_NAME=absloopquantTB2 bash create_absloopquantTB_env.sh   # side-by-side
+#   ENV_PREFIX=/path/to/envs/absloopquantTB bash create_absloopquantTB_env.sh
+#
+# ENV_PREFIX builds a prefix env at a path you choose instead of a named env in
+# the conda root. Prefer it when home is small, quota'd, or flaky.
 
-source ~/.bashrc
+set -uo pipefail
 
-# Environment name
-envName="absloopquantTB"
-scriptDir="/home/bbabatunde/packages/25-09-absloopquant/AbsLoopQuant_TB"
+[ -f ~/.bashrc ] && source ~/.bashrc
+
+# Resolve this repo's location rather than hardcoding it, so the script works
+# from a clone in any directory.
+scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+envName="${ENV_NAME:-absloopquantTB}"
 ymlFile="${scriptDir}/absloopquantTB_env.yml"
+useLock=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --lock) useLock=1; ymlFile="${scriptDir}/absloopquantTB_env.lock.yml" ;;
+        -h|--help) sed -n '3,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    esac
+done
 
 echo "=================================================="
 echo "Creating mamba environment: ${envName}"
+echo "  spec: $(basename "${ymlFile}")$( ((useLock)) && echo '  (exact, linux-64 only)' )"
 echo "=================================================="
 
-# Check if yml file exists
 if [ ! -f "${ymlFile}" ]; then
-    echo "Error: Environment file not found: ${ymlFile}"
-    echo "Please export the environment first using:"
-    echo "  bash ${scriptDir}/export_absloopquantTB_env.sh"
+    echo "Error: Environment file not found: ${ymlFile}" >&2
     exit 1
 fi
 
-# Check if environment already exists
-if mamba env list | grep -q "[[:space:]]*${envName}[[:space:]]"; then
-    echo "Warning: Environment '${envName}' already exists"
-    read -p "Do you want to remove it and recreate? (y/n): " -n 1 -r
-    echo
+if ! command -v mamba >/dev/null 2>&1; then
+    echo "Error: mamba not on PATH." >&2
+    exit 1
+fi
+
+# Build as a prefix env if ENV_PREFIX is set, otherwise a named env.
+if [ -n "${ENV_PREFIX:-}" ]; then
+    target=(-p "${ENV_PREFIX}")
+    exists=$([ -d "${ENV_PREFIX}" ] && echo yes || echo no)
+    label="${ENV_PREFIX}"
+else
+    target=(-n "${envName}")
+    exists=$(mamba env list | awk -v n="${envName}" '$1==n {print "yes"; exit}')
+    exists="${exists:-no}"
+    label="${envName}"
+fi
+
+if [ "${exists}" = "yes" ]; then
+    echo "Warning: Environment '${label}' already exists"
+    if [ "${FORCE_RECREATE:-0}" = "1" ]; then
+        REPLY=y
+    else
+        read -p "Remove it and recreate? (y/n): " -n 1 -r
+        echo
+    fi
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "Removing existing environment..."
-        mamba env remove -n ${envName} -y
+        mamba env remove "${target[@]}" -y
     else
         echo "Aborting. Environment already exists."
         exit 1
     fi
 fi
 
-# Create environment from yml file
 echo "Creating environment from: ${ymlFile}"
-mamba env create -n ${envName} -f ${ymlFile}
+mamba env create "${target[@]}" -f "${ymlFile}" || {
+    echo "✗ Error creating environment" >&2
+    exit 1
+}
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✓ Successfully created environment: ${envName}"
+# Verify the imports the scripts in this repo actually make, rather than
+# trusting that the solve succeeded.
+if [ -n "${ENV_PREFIX:-}" ]; then py="${ENV_PREFIX}/bin/python"; else py="$(mamba run "${target[@]}" which python 2>/dev/null)"; fi
+echo ""
+echo "Verifying imports..."
+rc=0
+for m in numpy pandas scipy cooler cooltools cv2 matplotlib; do
+    if "${py}" -c "import ${m}" >/dev/null 2>&1; then
+        printf '  %-12s ok\n' "${m}"
+    else
+        printf '  %-12s FAIL\n' "${m}"; rc=1
+    fi
+done
+"${py}" -c "import sys; sys.path.insert(0,'${scriptDir}'); import looptools" >/dev/null 2>&1 \
+    && printf '  %-12s ok\n' "looptools" || { printf '  %-12s FAIL\n' "looptools"; rc=1; }
+
+echo ""
+if [ "${rc}" -eq 0 ]; then
+    echo "✓ Successfully created environment: ${label}"
     echo ""
     echo "To activate the environment, run:"
-    echo "  mamba activate ${envName}"
+    if [ -n "${ENV_PREFIX:-}" ]; then
+        echo "  mamba activate ${ENV_PREFIX}"
+    else
+        echo "  mamba activate ${envName}"
+    fi
 else
-    echo "✗ Error creating environment"
+    echo "✗ Environment created but some imports failed - see above." >&2
     exit 1
 fi
-

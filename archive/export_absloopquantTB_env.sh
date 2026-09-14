@@ -6,8 +6,11 @@ source ~/.bashrc
 
 # Environment name
 envName="absloopquantTB"
-scriptDir="/home/bbabatunde/packages/25-09-absloopquant/AbsLoopQuant_TB"
-outputYml="${scriptDir}/absloopquantTB_env.yml"
+# Resolve the repo root from this script's location (archive/ -> repo root).
+scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Writes the LOCK file, not absloopquantTB_env.yml. The latter is the
+# hand-maintained portable spec and must not be clobbered by an export.
+outputYml="${scriptDir}/absloopquantTB_env.lock.yml"
 
 echo "=================================================="
 echo "Exporting mamba environment: ${envName}"
@@ -29,7 +32,7 @@ if [ $? -eq 0 ]; then
     echo "✓ Successfully exported environment to: ${outputYml}"
     echo ""
     echo "To recreate this environment, run:"
-    echo "  bash ${scriptDir}/create_absloopquantTB_env.sh"
+    echo "  bash ${scriptDir}/create_absloopquantTB_env.sh --lock"
 else
     echo "✗ Error exporting environment"
     exit 1

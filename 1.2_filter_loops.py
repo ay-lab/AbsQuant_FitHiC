@@ -378,6 +378,20 @@ if __name__ == "__main__":
         # Check size and location
         size_loc_pass = acceptable_size_and_location(coolers[per_replicate_names[0]], chrom, left, right, local_region_size)
         
+        # PATCH: short-circuit on size_loc_pass before any cooler fetch.
+        # acceptable_size_and_location already rejects loops whose +/-
+        # local_region_size window runs off the end of the chromosome, but
+        # upstream only acts on that verdict AFTER the fetches below. So a loop
+        # near a chromosome end still reaches clr.matrix().fetch() and raises
+        #   ValueError: Genomic region out of bounds
+        # inside a Pool worker, which kills the whole chromosome mid-run.
+        # Returning here keeps the row shape (2n+3, matching column_names); the
+        # False/None values are discarded by the filters at the end exactly as
+        # the original early return's were.
+        if not size_loc_pass:
+            return [size_loc_pass] + [False] * len(per_replicate_names) + [False] + \
+                   [None] * len(per_replicate_names) + [None]
+
         # Check NaN regions for each replicate
         nan_passes = [no_NaNs_near_center(coolers[rep], chrom, left, right, local_region_size) 
                     for rep in per_replicate_names]

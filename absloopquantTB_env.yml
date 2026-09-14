@@ -1,4 +1,4 @@
-# Portable environment for AbsLoopQuant_TB.
+# Portable environment for AbsQuant_FitHiC.
 #
 # Dependencies are derived from what the code in this repo actually imports,
 # plus the packages the wider AbsLoopQuant analysis codebase needs, so an env

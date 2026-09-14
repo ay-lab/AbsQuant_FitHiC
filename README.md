@@ -1,4 +1,4 @@
-# AbsLoopQuant_TB - Absolute Loop Quantification Toolkit
+# AbsQuant_FitHiC - Absolute Loop Quantification Toolkit
 
 This package provides tools for calculating P(s) curves from Hi-C data and filtering loops based on quantitative criteria. It implements the AbsLoopQuant approach for identifying high-confidence chromatin loops.
 
